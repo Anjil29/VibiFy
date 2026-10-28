@@ -1,0 +1,12 @@
+[
+  {
+    "id": "user_demo_1",
+    "createdAt": "2026-10-26T03:48:44.295Z",
+    "name": "CodeBeats Listener",
+    "email": "codeBeats@vibify.com",
+    "phone": "+1 555-0199",
+    "password": "$2a$10$XTp6QO8u5PdX5hUbBU69Fe5oxbb31g1v1IDEkGnSSyalhT7hW.W26",
+    "avatar": "https://picsum.photos/seed/user/100/100",
+    "role": "user"
+  }
+]
