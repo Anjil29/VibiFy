@@ -16,8 +16,8 @@ export function convertToMinutes(timeStr) {
     hours += 12;
   }
   if (modifier && modifier.toUpperCase() === 'AM' && hours === 12) {
-    hours = 0;
-  }
+      hours = 0;
+  }  
 
   return hours * 60 + minutes;
 }
