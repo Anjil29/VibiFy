@@ -2,17 +2,28 @@ import React from 'react';
 import { Play, Pause, Heart } from 'lucide-react';
 import { usePlayer } from '../../hooks/usePlayer';
 import { useSelector } from 'react-redux';
-import { selectLikedSongs } from '../../store/slices/songSlice';
+import { selectLikedSongs, selectActiveMood } from '../../store/slices/songSlice';
 
-export const SongCard = ({ song, queue = null, className = '' }) => {
+export const SongCard = ({ song, queue = null, className = '', displayMood = null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, toggleLikeSong } = usePlayer();
   const likedSongs = useSelector(selectLikedSongs);
+  const activeMood = useSelector(selectActiveMood);
 
   if (!song) return null;
 
   const isCurrent = currentSong?.title?.toLowerCase() === song.title?.toLowerCase();
   const isPlayingThis = isCurrent && isPlaying;
   const isLiked = likedSongs.some((s) => s.title?.toLowerCase() === song.title?.toLowerCase());
+
+  // Determine which mood to display on the badge:
+  // Prioritize the user's selected active mood if the song contains it,
+  // otherwise fallback to the song's primary/first mood.
+  const moods = Array.isArray(song.mood) ? song.mood : song.mood ? [song.mood] : [];
+  const matchedActiveMood =
+    activeMood && activeMood !== 'None'
+      ? moods.find((m) => m?.toLowerCase() === activeMood.toLowerCase())
+      : null;
+  const displayMoodBadge = displayMood || matchedActiveMood || (moods.length > 0 ? moods[0] : null);
 
   const handleCardClick = () => {
     if (isCurrent) {
@@ -72,9 +83,9 @@ export const SongCard = ({ song, queue = null, className = '' }) => {
         </button>
 
         {/* Time Stamp / Mood Badge */}
-        {song.mood && song.mood[0] && (
+        {displayMoodBadge && (
           <span className="absolute bottom-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-900/80 text-emerald-300 backdrop-blur-md border border-slate-700/50">
-            {song.mood[0]}
+            {displayMoodBadge}
           </span>
         )}
       </div>

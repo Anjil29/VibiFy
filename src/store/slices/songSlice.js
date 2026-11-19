@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createSelector } from '@reduxjs/toolkit';
 import { songs as mockSongs } from '../../data/mockSongs';
 import { calculateDifference } from '../../utils/timeUtils';
 
@@ -62,22 +62,28 @@ export const {
 
 // Selectors
 export const selectAllSongs = (state) => state.songs.items;
-export const selectLikedSongs = (state) => state.songs.items.filter((s) => s.liked);
 export const selectActiveMood = (state) => state.songs.activeMood;
 export const selectActiveLanguage = (state) => state.songs.activeLanguage;
+
+export const selectLikedSongs = createSelector(
+  [selectAllSongs],
+  (items) => items.filter((s) => Boolean(s.liked))
+);
 
 /**
  * Selector for home page recommended songs based on active mood & time
  */
-export const selectRecommendedSongs = (state) => {
-  const { items, activeMood } = state.songs;
-  if (activeMood && activeMood !== 'None') {
-    return items.filter((s) => s.mood && s.mood.includes(activeMood));
+export const selectRecommendedSongs = createSelector(
+  [selectAllSongs, selectActiveMood],
+  (items, activeMood) => {
+    if (activeMood && activeMood !== 'None') {
+      return items.filter((s) => s.mood && s.mood.includes(activeMood));
+    }
+    // Otherwise filter by current local vibe time
+    const timeFiltered = items.filter((s) => calculateDifference(s.timeStamp));
+    return timeFiltered.length > 0 ? timeFiltered : items.slice(0, 30);
   }
-  // Otherwise filter by current local vibe time
-  const timeFiltered = items.filter((s) => calculateDifference(s.timeStamp));
-  return timeFiltered.length > 0 ? timeFiltered : items.slice(0, 30);
-};
+);
 
 export default songSlice.reducer;
 

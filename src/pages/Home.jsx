@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Sparkles, Play } from 'lucide-react';
 import MoodSection from '../components/music/MoodSection';
 import SongCard from '../components/music/SongCard';
+import Pagination from '../components/common/Pagination';
 import { selectRecommendedSongs, selectActiveMood } from '../store/slices/songSlice';
 import { usePlayer } from '../hooks/usePlayer';
 
@@ -10,6 +11,29 @@ export const Home = () => {
   const recommendedSongs = useSelector(selectRecommendedSongs);
   const activeMood = useSelector(selectActiveMood);
   const { playSong } = usePlayer();
+
+  const [page, setPage] = useState(0);
+  const songsPerPage = 30;
+
+  const totalPages = Math.ceil(recommendedSongs.length / songsPerPage);
+
+  // Memoize paginated songs slice for performance
+  const paginatedSongs = useMemo(() => {
+    const start = page * songsPerPage;
+    return recommendedSongs.slice(start, start + songsPerPage);
+  }, [recommendedSongs, page, songsPerPage]);
+
+  // Reset page when activeMood filter changes
+  useEffect(() => {
+    setPage(0);
+  }, [activeMood]);
+
+  // Keep page within bounds if the number of recommendations changes with time
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [page, totalPages]);
 
   const handlePlayAll = () => {
     if (recommendedSongs.length > 0) {
@@ -22,7 +46,7 @@ export const Home = () => {
       {/* Hero Banner */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900/30 via-slate-900/80 to-slate-950 p-6 md:p-10 border border-slate-800/80 shadow-2xl">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-        
+
         <div className="relative z-10 max-w-2xl">
           {/* <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5" />
@@ -77,10 +101,23 @@ export const Home = () => {
         </div>
 
         {recommendedSongs.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {recommendedSongs.map((song, i) => (
-              <SongCard key={`${song.title}-${i}`} song={song} queue={recommendedSongs} />
-            ))}
+          <div className="flex flex-col">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {paginatedSongs.map((song, i) => (
+                <SongCard
+                  key={`${song.title}-${page * songsPerPage + i}`}
+                  song={song}
+                  queue={recommendedSongs}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         ) : (
           <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-400">

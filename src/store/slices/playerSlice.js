@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createSelector } from '@reduxjs/toolkit';
 import { storage } from '../../utils/storage';
 
 const DEFAULT_SONG = {
@@ -124,11 +124,18 @@ export const selectCurrentSong = (state) => state.player.currentSong;
 export const selectIsPlaying = (state) => state.player.isPlaying;
 export const selectPlayerVolume = (state) => state.player.volume;
 export const selectIsMuted = (state) => state.player.isMuted;
-export const selectPlayerProgress = (state) => ({
-  progress: state.player.progress,
-  currentTime: state.player.currentTime,
-  totalTime: state.player.totalTime,
-});
+export const selectPlayerProgress = createSelector(
+  [
+    (state) => state.player.progress,
+    (state) => state.player.currentTime,
+    (state) => state.player.totalTime,
+  ],
+  (progress, currentTime, totalTime) => ({
+    progress,
+    currentTime,
+    totalTime,
+  })
+);
 export const selectPlayerQueue = (state) => state.player.queue;
 export const selectShuffle = (state) => state.player.shuffle;
 export const selectRepeat = (state) => state.player.repeat;

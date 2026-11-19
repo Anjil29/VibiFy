@@ -11,11 +11,11 @@ export const NavigationBar = () => {
     { to: '/home', label: 'Home', icon: Home, end: true },
     { to: '/library', label: 'Library', icon: Library },
     { to: '/explore', label: 'Explore', icon: Compass },
-    { 
-      to: '/liked-songs', 
-      label: 'Liked Songs', 
-      icon: Heart, 
-      badge: likedSongs.length > 0 ? likedSongs.length : null 
+    {
+      to: '/liked-songs',
+      label: 'Liked Songs',
+      icon: Heart,
+      badge: likedSongs.length > 0 ? likedSongs.length : null
     },
     { to: '/artists', label: 'Artists', icon: Mic2 },
     { to: '/languages', label: 'Languages', icon: Globe },
@@ -32,20 +32,19 @@ export const NavigationBar = () => {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all duration-200 select-none ${
-                  isActive
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-500/10'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent'
+                `flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all duration-200 select-none ${isActive
+                  ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-500/10'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent'
                 }`
               }
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span>{item.label}</span>
-              {item.badge !== null && (
+              {/* {item.badge !== null && (
                 <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
                   {item.badge}
                 </span>
-              )}
+              )} */}
             </NavLink>
           );
         })}
