@@ -9,7 +9,7 @@ export const protect = (req, res, next) => {
     token = req.headers.authorization.split(' ')[1];
   }
 
-  if (!token) {
+  if (!token){
     return res.status(401).json({
       success: false,
       message: 'Not authorized. Please log in to access this resource.',
