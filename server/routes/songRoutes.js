@@ -9,7 +9,7 @@ import {
 } from '../controllers/songController.js';
 import { optionalAuth } from '../middleware/authMiddleware.js';
 
-const router = Router();
+const router = Router(); 
 
 router.get('/', optionalAuth, getAllSongs);
 router.get('/search', optionalAuth, searchSongs);
