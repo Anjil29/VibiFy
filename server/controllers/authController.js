@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 import db from '../utils/db.js';
 
-const generateToken = (userId) => {
+const generateToken = (userId) =>  {
   return jwt.sign({ id: userId }, config.JWT_SECRET, {
     expiresIn: config.JWT_EXPIRES_IN,
   });
@@ -56,7 +56,7 @@ export const register = async (req, res, next) => {
   }
 };
 
-export const login = async (req, res, next) => {
+export const login = async (req, res, next)=>{
   try {
     const { email, password } = req.body;
 

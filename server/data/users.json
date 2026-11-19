@@ -1,5 +1,15 @@
 [
   {
+    "id": "doc_1795097567331_k7opx",
+    "createdAt": "2026-11-19T14:12:47.331Z",
+    "name": "Amrita",
+    "email": "amrita.@gmail.com",
+    "phone": "",
+    "password": "$2a$10$.6HaN93t/IWZoLPDOvOeHuSolrmTzs20hGf9Se6ur3mIfH9SW0nTW",
+    "avatar": "https://picsum.photos/seed/amrita.%40gmail.com/100/100",
+    "role": "user"
+  },
+  {
     "id": "user_demo_1",
     "createdAt": "2026-10-26T03:48:44.295Z",
     "name": "CodeBeats Listener",
