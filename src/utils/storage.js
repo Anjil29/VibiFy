@@ -18,7 +18,8 @@ export const storage = {
       console.warn(`Error reading from localStorage key "${key}":`, e);
       return defaultValue;
     }
-  },
+  }
+  ,
 
   set(key, value) {
     try {
