@@ -13,7 +13,7 @@ router.post('/discover', async (req, res, next) => {
       });
     }
 
-    const songTitle = query.trim();
+    const songTitle   = query.trim();
 
     // Check if Gemini API key is configured on server
     if (config.GEMINI_API_KEY) {
