@@ -5,6 +5,7 @@
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'vibify_auth_token',
   AUTH_USER: 'vibify_auth_user',
+  REGISTERED_USERS: 'vibify_registered_users',
   LIKED_SONGS: 'vibify_liked_songs',
   VOLUME: 'vibify_player_volume',
 };
@@ -48,3 +49,4 @@ export const storage = {
   KEYS: STORAGE_KEYS,
 };
 
+export default storage;

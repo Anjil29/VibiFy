@@ -1,7 +1,6 @@
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
-import db from '../utils/db.js';
+import User from '../models/User.js';
 
 const generateToken = (userId) =>  {
   return jwt.sign({ id: userId }, config.JWT_SECRET, {
@@ -21,7 +20,7 @@ export const register = async (req, res, next) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const existing = db.users.findOne((u) => u.email?.toLowerCase() === cleanEmail);
+    const existing = await User.findOne({ email: cleanEmail });
 
     if (existing) {
       return res.status(400).json({
@@ -30,26 +29,34 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const displayName = name?.trim() || cleanEmail.split('@')[0];
+    const avatarUrl = `https://picsum.photos/seed/${encodeURIComponent(cleanEmail)}/100/100`;
 
-    const user = db.users.insert({
-      name: name?.trim() || cleanEmail.split('@')[0],
+    const user = await User.create({
+      name: displayName,
       email: cleanEmail,
       phone: phone?.trim() || '',
-      password: hashedPassword,
-      avatar: `https://picsum.photos/seed/${encodeURIComponent(cleanEmail)}/100/100`,
+      password,
+      avatar: avatarUrl,
       role: 'user',
     });
 
-    const token = generateToken(user.id);
-    const { password: _, ...userSafe } = user;
+    const token = generateToken(user._id);
 
     res.status(201).json({
       success: true,
       token,
-      user: userSafe,
-      message: 'Account created successfully!',
+      user: {
+        id: String(user._id),
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
+      message: 'Account created successfully in MongoDB!',
     });
   } catch (err) {
     next(err);
@@ -67,8 +74,15 @@ export const login = async (req, res, next)=>{
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const user = db.users.findOne((u) => u.email?.toLowerCase() === cleanEmail);
+    const cleanInput = email.toLowerCase().trim();
+    const cleanPhoneDigits = cleanInput.replace(/[^0-9]/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanInput },
+        ...(cleanPhoneDigits.length >= 6 ? [{ phone: { $regex: cleanPhoneDigits } }] : []),
+      ],
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -77,7 +91,7 @@ export const login = async (req, res, next)=>{
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -85,13 +99,21 @@ export const login = async (req, res, next)=>{
       });
     }
 
-    const token = generateToken(user.id);
-    const { password: _, ...userSafe } = user;
+    const token = generateToken(user._id);
 
     res.json({
       success: true,
       token,
-      user: userSafe,
+      user: {
+        id: String(user._id),
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
       message: 'Logged in successfully!',
     });
   } catch (err) {
@@ -116,4 +138,3 @@ export const logout = (req, res) => {
     message: 'Logged out successfully.',
   });
 };
-

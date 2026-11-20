@@ -1,9 +1,20 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { songs as mockSongs } from '../../data/mockSongs';
 import { calculateDifference } from '../../utils/timeUtils';
+import { storage } from '../../utils/storage';
+
+// Initialize with locally saved liked songs if present
+const savedLikes = storage.get(storage.KEYS.LIKED_SONGS, null);
+
+const initialItems = Array.isArray(savedLikes)
+  ? mockSongs.map((s) => ({
+      ...s,
+      liked: savedLikes.includes(s.title?.toLowerCase()),
+    }))
+  : mockSongs;
 
 const initialState = {
-  items: mockSongs,
+  items: initialItems,
   activeMood: 'None',
   activeLanguage: 'All',
   searchQuery: '',
@@ -15,6 +26,10 @@ const songSlice = createSlice({
   reducers: {
     setSongs: (state, action) => {
       state.items = action.payload;
+      const likedTitles = action.payload
+        .filter((s) => s.liked)
+        .map((s) => s.title.toLowerCase());
+      storage.set(storage.KEYS.LIKED_SONGS, likedTitles);
     },
     addSong: (state, action) => {
       // Check if song already exists
@@ -37,6 +52,10 @@ const songSlice = createSlice({
       );
       if (song) {
         song.liked = !song.liked;
+        const likedTitles = state.items
+          .filter((s) => s.liked)
+          .map((s) => s.title.toLowerCase());
+        storage.set(storage.KEYS.LIKED_SONGS, likedTitles);
       }
     },
     setActiveMood: (state, action) => {
@@ -80,4 +99,3 @@ export const selectRecommendedSongs = (state) => {
 };
 
 export default songSlice.reducer;
-

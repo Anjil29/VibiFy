@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
-import db from '../utils/db.js';
+import User from '../models/User.js';
 
-export const protect = (req, res, next) => {
+export const protect = async (req, res, next) => {
   let token = null;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -18,7 +18,7 @@ export const protect = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, config.JWT_SECRET);
-    const user = db.users.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
       return res.status(401).json({
@@ -27,9 +27,7 @@ export const protect = (req, res, next) => {
       });
     }
 
-    // Strip password from req.user
-    const { password: _, ...userWithoutPassword } = user;
-    req.user = userWithoutPassword;
+    req.user = user;
     next();
   } catch {
     return res.status(401).json({
@@ -42,15 +40,14 @@ export const protect = (req, res, next) => {
 /**
  * Attaches user if valid token present, but permits anonymous guests
  */
-export const optionalAuth = (req, res, next) => {
+export const optionalAuth = async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     const token = req.headers.authorization.split(' ')[1];
     try {
       const decoded = jwt.verify(token, config.JWT_SECRET);
-      const user = db.users.findById(decoded.id);
+      const user = await User.findById(decoded.id).select('-password');
       if (user) {
-        const { password: _, ...userWithoutPassword } = user;
-        req.user = userWithoutPassword;
+        req.user = user;
       }
     } catch {
       // Ignore token decode errors for optional auth
@@ -58,4 +55,3 @@ export const optionalAuth = (req, res, next) => {
   }
   next();
 };
-

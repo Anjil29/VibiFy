@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { selectAllSongs } from '../store/slices/songSlice';
 import ArtistCard from '../components/music/ArtistCard';
 import Pagination from '../components/common/Pagination';
@@ -7,6 +8,9 @@ import { Mic2, Search, ArrowLeft } from 'lucide-react';
 import SongCard from '../components/music/SongCard';
 
 export const Artists = () => {
+  const [searchParams] = useSearchParams();
+  const artistParam = searchParams.get('artist');
+
   const songs = useSelector(selectAllSongs);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -39,6 +43,20 @@ export const Artists = () => {
 
     return Array.from(artistMap.values()).sort((a, b) => b.count - a.count);
   }, [songs]);
+
+  // Synchronize artist query parameter from URL (e.g. from Explore page click)
+  useEffect(() => {
+    if (artistParam && allArtists.length > 0) {
+      const matched = allArtists.find(
+        (a) => a.singer.toLowerCase() === artistParam.toLowerCase().trim()
+      );
+      if (matched) {
+        setSelectedArtist(matched);
+      } else {
+        setSearch(artistParam);
+      }
+    }
+  }, [artistParam, allArtists]);
 
   // Filtered by search
   const filteredArtists = useMemo(() => {
@@ -152,4 +170,3 @@ export const Artists = () => {
 };
 
 export default Artists;
-

@@ -32,6 +32,7 @@ import {
 import { selectLikedSongs, toggleLike } from '../../store/slices/songSlice';
 import { showToast } from '../../store/slices/uiSlice';
 import { formatTime } from '../../utils/timeUtils';
+import songService from '../../services/songService';
 
 export const MusicPlayer = () => {
   const dispatch = useDispatch();
@@ -236,6 +237,7 @@ export const MusicPlayer = () => {
   const handleLikeToggle = () => {
     if (!currentSong) return;
     dispatch(toggleLike(currentSong));
+    songService.toggleLike(currentSong).catch(() => {});
     dispatch(
       showToast({
         message: isLiked

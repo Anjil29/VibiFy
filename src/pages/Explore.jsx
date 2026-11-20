@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, TrendingUp, Mic2, Disc3 } from 'lucide-react';
 import { EXPLORE_DATA } from '../data/categories';
 import SongCard from '../components/music/SongCard';
 import ArtistCard from '../components/music/ArtistCard';
 
 export const Explore = () => {
+  const navigate = useNavigate();
   const { latestSongs, trendingSongs, trendingArtists, newAlbums } = EXPLORE_DATA;
 
   return (
@@ -60,7 +62,11 @@ export const Explore = () => {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {trendingArtists.map((artist) => (
-            <ArtistCard key={artist.id} artist={artist} />
+            <ArtistCard
+              key={artist.id}
+              artist={artist}
+              onClick={() => navigate(`/artists?artist=${encodeURIComponent(artist.name)}`)}
+            />
           ))}
         </div>
       </section>
@@ -84,4 +90,3 @@ export const Explore = () => {
 };
 
 export default Explore;
-

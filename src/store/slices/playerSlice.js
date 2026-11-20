@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { storage } from '../../utils/storage';
+import { songs as defaultSongs } from '../../data/mockSongs';
 
 const DEFAULT_SONG = {
   title: 'Malang',
@@ -63,34 +64,36 @@ const playerSlice = createSlice({
       state.queue = action.payload;
     },
     nextSong: (state) => {
-      if (!state.queue || state.queue.length === 0) return;
+      const activeQueue = (state.queue && state.queue.length > 0) ? state.queue : defaultSongs.slice(0, 50);
+      if (activeQueue.length === 0) return;
       
-      const currentIndex = state.queue.findIndex(
-        (s) => s.title === state.currentSong.title
+      const currentIndex = activeQueue.findIndex(
+        (s) => s.title === state.currentSong?.title
       );
       
       if (state.shuffle) {
-        const randomIndex = Math.floor(Math.random() * state.queue.length);
-        state.currentSong = state.queue[randomIndex];
-      } else if (currentIndex < state.queue.length - 1) {
-        state.currentSong = state.queue[currentIndex + 1];
-      } else if (state.repeat === 'all') {
-        state.currentSong = state.queue[0];
+        const randomIndex = Math.floor(Math.random() * activeQueue.length);
+        state.currentSong = activeQueue[randomIndex];
+      } else if (currentIndex < activeQueue.length - 1) {
+        state.currentSong = activeQueue[currentIndex + 1];
+      } else if (state.repeat === 'all' || currentIndex === activeQueue.length - 1) {
+        state.currentSong = activeQueue[0];
       }
       state.progress = 0;
       state.isPlaying = true;
     },
     prevSong: (state) => {
-      if (!state.queue || state.queue.length === 0) return;
+      const activeQueue = (state.queue && state.queue.length > 0) ? state.queue : defaultSongs.slice(0, 50);
+      if (activeQueue.length === 0) return;
       
-      const currentIndex = state.queue.findIndex(
-        (s) => s.title === state.currentSong.title
+      const currentIndex = activeQueue.findIndex(
+        (s) => s.title === state.currentSong?.title
       );
       
       if (currentIndex > 0) {
-        state.currentSong = state.queue[currentIndex - 1];
-      } else if (state.repeat === 'all') {
-        state.currentSong = state.queue[state.queue.length - 1];
+        state.currentSong = activeQueue[currentIndex - 1];
+      } else if (state.repeat === 'all' || currentIndex === 0) {
+        state.currentSong = activeQueue[activeQueue.length - 1];
       }
       state.progress = 0;
       state.isPlaying = true;

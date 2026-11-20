@@ -2,7 +2,7 @@
 
 **Your vibes, your tunes — let the music match your mood.**
 
-Vibify is a modern full-stack music streaming and vibe-matching web platform. It pairs tracks to your time of day, active mood, language, and personal listening history, backed by YouTube playback, AI-assisted track discovery, and a robust Node.js/Express backend.
+Vibify is a modern full-stack music streaming and vibe-matching web platform. It pairs tracks to your time of day, active mood, language, and personal listening history, backed by YouTube playback, AI-assisted track discovery, and a robust **Node.js + Express + MongoDB** backend.
 
 ---
 
@@ -12,12 +12,17 @@ The project is structured into a modern full-stack setup:
 
 ```
 Vibify-main/
-├── server/                    # 🚀 NODE.JS / EXPRESS BACKEND
+├── server/                    # 🚀 NODE.JS / EXPRESS / MONGODB BACKEND
 │   ├── config/
-│   │   └── config.js          # Server configuration & environment variables
+│   │   ├── config.js          # Environment variables & constants
+│   │   └── db.js              # Mongoose MongoDB connection manager
+│   ├── models/                # 🍃 MONGOOSE SCHEMAS & MODELS
+│   │   ├── User.js            # User schema (bcrypt hashing, JWT, likedSongs)
+│   │   ├── Song.js            # Song schema (flexible videoId, artists, moods, duration)
+│   │   └── Like.js            # Like schema (user-to-song relation with unique index)
 │   ├── controllers/
-│   │   ├── authController.js  # Register, login, current user (me), logout
-│   │   └── songController.js  # Catalog, search, vibe recommendations, likes
+│   │   ├── authController.js  # Register, login, getMe, logout (MongoDB powered)
+│   │   └── songController.js  # Live catalog, search, recommendations, like toggling
 │   ├── middleware/
 │   │   ├── authMiddleware.js  # JWT Bearer token protection & guest fallback
 │   │   └── errorMiddleware.js # 404 handler & centralized error logging
@@ -25,25 +30,19 @@ Vibify-main/
 │   │   ├── authRoutes.js      # /api/auth
 │   │   ├── songRoutes.js      # /api/songs
 │   │   └── aiRoutes.js        # /api/ai
-│   ├── utils/
-│   │   ├── db.js              # High-performance JSON database engine with atomic writes
-│   │   └── timeUtils.js       # Vibe matching time-window calculation
 │   ├── data/
-│   │   ├── seed.js            # Auto-seeds songs and default demo user
-│   │   ├── songs.json         # Seeded song catalog
-│   │   ├── users.json         # User credentials with bcrypt hashes
-│   │   └── likes.json         # User liked tracks storage
-│   ├── .env                   # Server environment variables
+│   │   └── seed.js            # Syncs default demo user & songs into MongoDB
+│   ├── .env                   # Server environment variables (MONGO_URI, PORT, JWT)
 │   ├── .env.example
 │   ├── package.json
-│   └── server.js              # Express entrypoint with CORS, logging & seed boot
+│   └── server.js              # Express entrypoint with CORS, Mongoose boot & health
 │
 ├── src/                       # ⚛️ REACT + VITE FRONTEND
 │   ├── components/
 │   │   ├── common/            # Button, Input, Pagination, SearchBar, Toast
 │   │   ├── layout/            # Navbar, NavigationBar, MusicPlayer, Footer, MainLayout
 │   │   └── music/             # SongCard, SongRow, ArtistCard, MoodSection
-│   ├── data/                  # Static datasets (mockSongs.js, categories.js)
+│   ├── data/                  # Static categories & fallback datasets
 │   ├── hooks/                 # usePlayer, useDebounce
 │   ├── pages/                 # Home, Library, Explore, LikedSongs, Artists, Languages, Login, SignUp, NotFound
 │   ├── routes/                # AppRoutes, ProtectedRoute
@@ -54,6 +53,25 @@ Vibify-main/
 ├── package.json               # Root scripts & frontend dependencies
 └── vite.config.js             # Vite configuration with React, Tailwind & /api proxy
 ```
+
+---
+
+## 🍃 MongoDB & MongoDB Compass Setup
+
+The backend connects directly to your local **MongoDB** database:
+
+- **Connection URI**: `mongodb://127.0.0.1:27017/vibify`
+- **Database Name**: `vibify`
+- **Collections in Compass**:
+  - `users`: Registered users with bcrypt-hashed passwords and their liked songs array.
+  - `songs`: Song catalog with titles, video IDs, artists, moods, and languages.
+  - `likes`: Relational like entries tracking user-to-song bookmarks.
+
+> **View in MongoDB Compass**:
+> 1. Open MongoDB Compass.
+> 2. Connect to `mongodb://localhost:27017`.
+> 3. Click the `vibify` database.
+> 4. View, edit, or insert documents in `users`, `songs`, or `likes` — changes reflect live in the Vibify UI upon page refresh!
 
 ---
 
@@ -70,27 +88,27 @@ cd server && npm install && cd ..
 
 ### 2. Start the Application
 
-You can run both or either service:
+Run both services in separate terminal tabs:
 
 ```bash
-# Terminal 1: Start Express Backend (runs on http://localhost:5001)
+# Terminal 1: Start Express & MongoDB Backend (runs on http://localhost:5001)
 npm run server
 
 # Terminal 2: Start Vite Frontend (runs on http://localhost:5173)
 npm run dev
 ```
 
-> **Note on Port 5001**: Port 5001 is used by default because macOS AirPlay Receiver reserves port 5000. Vite automatically proxies `/api` requests from `http://localhost:5173` to `http://localhost:5001`.
+> **Why Port 5001?** Port 5001 is used because macOS AirPlay Receiver occupies port 5000. Vite automatically proxies all `/api` requests from `http://localhost:5173` to `http://localhost:5001`.
 
 ---
 
-## 👤 Default Demo Account
+## 👤 Authentication & Demo Account
 
-The backend automatically seeds a demo account upon first launch:
-- **Email**: `codeBeats@vibify.com`
+The MongoDB database includes a default demo user initialized on boot:
+- **Email**: `codebeats@vibify.com`
 - **Password**: `password123`
 
-You can also click **"Fill Credentials"** directly on the Login page.
+You can also sign up with **any new account** via the Sign Up page (`/signup`) or log in with your custom credentials — your profile is saved directly into MongoDB and shown in MongoDB Compass.
 
 ---
 
@@ -99,20 +117,20 @@ You can also click **"Fill Credentials"** directly on the Login page.
 ### 🔐 Authentication (`/api/auth`)
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| `POST` | `/api/auth/signup` | Register new account with hashed password | No |
-| `POST` | `/api/auth/login` | Authenticate user & receive JWT token | No |
-| `GET` | `/api/auth/me` | Fetch authenticated user profile | Yes (Bearer JWT) |
+| `POST` | `/api/auth/signup` | Register new account into MongoDB with hashed password | No |
+| `POST` | `/api/auth/login` | Authenticate user against MongoDB & receive JWT | No |
+| `GET` | `/api/auth/me` | Fetch authenticated user profile from MongoDB | Yes (Bearer JWT) |
 | `POST` | `/api/auth/logout` | End session | No |
 
 ### 🎵 Songs (`/api/songs`)
 | Method | Endpoint | Description | Query Parameters |
 |---|---|---|---|
-| `GET` | `/api/songs` | Fetch songs catalog | `?page=1&limit=50&mood=Chill&language=Hindi` |
-| `GET` | `/api/songs/search` | Search songs, singers & albums | `?q=search_term` |
+| `GET` | `/api/songs` | Fetch songs directly from MongoDB `songs` collection | `?page=1&limit=50&mood=Chill&language=Hindi` |
+| `GET` | `/api/songs/search` | Search songs, singers & albums in MongoDB | `?q=search_term` |
 | `GET` | `/api/songs/recommendations` | Get time-based vibe recommendations | `?mood=Romantic&time=8:00+PM` |
 | `GET` | `/api/songs/liked` | Fetch all songs liked by current user | None |
-| `POST` | `/api/songs/like` | Toggle like status for a song | `{ title: "Song Name" }` |
-| `POST` | `/api/songs` | Add new song to database | Song metadata body |
+| `POST` | `/api/songs/like` | Toggle like status in MongoDB `likes` and `users` | `{ title: "Song Name" }` |
+| `POST` | `/api/songs` | Add new song directly into MongoDB collection | Song metadata body |
 
 ### 🤖 AI Discovery (`/api/ai`)
 | Method | Endpoint | Description |
@@ -122,7 +140,7 @@ You can also click **"Fill Credentials"** directly on the Login page.
 ### 🩺 Health (`/api/health`)
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Health check with uptime and database item counts |
+| `GET` | `/api/health` | Health check with live MongoDB connection status & document counts |
 
 ---
 

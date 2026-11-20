@@ -1,132 +1,160 @@
-import db from '../utils/db.js';
+import Song from '../models/Song.js';
+import Like from '../models/Like.js';
+import User from '../models/User.js';
 import { calculateDifference } from '../utils/timeUtils.js';
 
-export const getAllSongs = (req, res, next) => {
+export const getAllSongs = async (req, res, next) => {
   try {
     const { mood, language, search, page, limit, all } = req.query;
-    const userId = req.user?.id || 'guest_listener';
+    const userId = req.user ? String(req.user._id || req.user.id) : null;
 
-    // Retrieve user liked titles set
-    const userLikes = new Set(
-      db.likes
-        .findAll((like) => like.userId === userId)
-        .map((like) => like.songTitle?.toLowerCase())
-    );
+    // 1. Fetch user's liked titles from MongoDB
+    let userLikedTitles = new Set();
+    if (userId) {
+      const likes = await Like.find({ userId }).select('songTitle').lean();
+      userLikedTitles = new Set(likes.map((l) => l.songTitle.toLowerCase()));
+    }
 
-    let songs = db.songs.findAll();
+    // 2. Build MongoDB filter
+    const filter = {};
 
-    // Filter by mood
     if (mood && mood !== 'All' && mood !== 'None') {
-      songs = songs.filter((s) => s.mood && s.mood.includes(mood));
+      const regexMood = new RegExp(`^${mood}$`, 'i');
+      filter.$or = [{ mood: regexMood }, { moods: regexMood }];
     }
 
-    // Filter by language
     if (language && language !== 'All') {
-      songs = songs.filter((s) => s.language?.toLowerCase() === language.toLowerCase());
+      filter.language = new RegExp(`^${language}$`, 'i');
     }
 
-    // Filter by search term
     if (search && search.trim()) {
-      const q = search.toLowerCase().trim();
-      songs = songs.filter(
-        (s) =>
-          s.title.toLowerCase().includes(q) ||
-          s.singers?.some((singer) => singer.toLowerCase().includes(q)) ||
-          s.album?.toLowerCase().includes(q)
+      const q = search.trim();
+      const regex = new RegExp(q, 'i');
+      const searchOr = [
+        { title: regex },
+        { singers: regex },
+        { artists: regex },
+        { album: regex },
+      ];
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
+    }
+
+    // 3. Query MongoDB
+    const isUnpaginated = all === 'true' || (!page && !limit);
+
+    if (isUnpaginated) {
+      const docs = await Song.find(filter).sort({ createdAt: -1 });
+      const normalized = docs.map((doc) =>
+        doc.toNormalized(userLikedTitles.has(doc.title.toLowerCase()))
       );
+      return res.json(normalized);
     }
 
-    // Map personal liked status
-    const mappedSongs = songs.map((s) => ({
-      ...s,
-      liked: userLikes.has(s.title?.toLowerCase()) || Boolean(s.liked),
-    }));
-
-    // If client requested unpaginated array (or frontend songService expectations)
-    if (all === 'true' || (!page && !limit)) {
-      return res.json(mappedSongs);
-    }
-
-    // Paginated response
-    const currentPage = parseInt(page, 10) || 1;
-    const itemsPerPage = parseInt(limit, 10) || 50;
-    const total = mappedSongs.length;
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const itemsPerPage = Math.max(1, parseInt(limit, 10) || 50);
+    const total = await Song.countDocuments(filter);
     const totalPages = Math.ceil(total / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginated = mappedSongs.slice(startIndex, startIndex + itemsPerPage);
+
+    const docs = await Song.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((currentPage - 1) * itemsPerPage)
+      .limit(itemsPerPage);
+
+    const normalized = docs.map((doc) =>
+      doc.toNormalized(userLikedTitles.has(doc.title.toLowerCase()))
+    );
 
     res.json({
       success: true,
       total,
       page: currentPage,
       totalPages,
-      songs: paginated,
+      songs: normalized,
     });
   } catch (err) {
     next(err);
   }
 };
 
-export const searchSongs = (req, res, next) => {
+export const searchSongs = async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q || !q.trim()) {
       return res.json([]);
     }
 
-    const query = q.toLowerCase().trim();
-    const userId = req.user?.id || 'guest_listener';
-    const userLikes = new Set(
-      db.likes
-        .findAll((like) => like.userId === userId)
-        .map((like) => like.songTitle?.toLowerCase())
+    const query = q.trim();
+    const regex = new RegExp(query, 'i');
+    const userId = req.user ? String(req.user._id || req.user.id) : null;
+
+    let userLikedTitles = new Set();
+    if (userId) {
+      const likes = await Like.find({ userId }).select('songTitle').lean();
+      userLikedTitles = new Set(likes.map((l) => l.songTitle.toLowerCase()));
+    }
+
+    const docs = await Song.find({
+      $or: [
+        { title: regex },
+        { singers: regex },
+        { artists: regex },
+        { album: regex },
+        { mood: regex },
+        { moods: regex },
+      ],
+    })
+      .limit(50)
+      .sort({ createdAt: -1 });
+
+    const result = docs.map((doc) =>
+      doc.toNormalized(userLikedTitles.has(doc.title.toLowerCase()))
     );
 
-    const matches = db.songs
-      .findAll((s) =>
-        s.title?.toLowerCase().includes(query) ||
-        s.singers?.some((singer) => singer.toLowerCase().includes(query)) ||
-        s.album?.toLowerCase().includes(query) ||
-        s.mood?.some((m) => m.toLowerCase().includes(query))
-      )
-      .slice(0, 50)
-      .map((s) => ({
-        ...s,
-        liked: userLikes.has(s.title?.toLowerCase()) || Boolean(s.liked),
-      }));
-
-    res.json(matches);
+    res.json(result);
   } catch (err) {
     next(err);
   }
 };
 
-export const getRecommendations = (req, res, next) => {
+export const getRecommendations = async (req, res, next) => {
   try {
     const { mood, time } = req.query;
-    const userId = req.user?.id || 'guest_listener';
-    const userLikes = new Set(
-      db.likes
-        .findAll((like) => like.userId === userId)
-        .map((like) => like.songTitle?.toLowerCase())
-    );
+    const userId = req.user ? String(req.user._id || req.user.id) : null;
 
-    let candidates = db.songs.findAll();
+    let userLikedTitles = new Set();
+    if (userId) {
+      const likes = await Like.find({ userId }).select('songTitle').lean();
+      userLikedTitles = new Set(likes.map((l) => l.songTitle.toLowerCase()));
+    }
 
+    const query = {};
     if (mood && mood !== 'None' && mood !== 'All') {
-      candidates = candidates.filter((s) => s.mood && s.mood.includes(mood));
-    } else {
-      candidates = candidates.filter((s) => calculateDifference(s.timeStamp, time));
+      const regexMood = new RegExp(`^${mood}$`, 'i');
+      query.$or = [{ mood: regexMood }, { moods: regexMood }];
     }
 
-    if (candidates.length === 0) {
-      candidates = db.songs.findAll().slice(0, 30);
+    let docs = await Song.find(query).limit(100);
+
+    // Filter by time window if no explicit mood chosen
+    if (!mood || mood === 'None' || mood === 'All') {
+      const timeFiltered = docs.filter((s) => calculateDifference(s.timeStamp, time));
+      if (timeFiltered.length > 0) {
+        docs = timeFiltered;
+      }
     }
 
-    const result = candidates.slice(0, 40).map((s) => ({
-      ...s,
-      liked: userLikes.has(s.title?.toLowerCase()) || Boolean(s.liked),
-    }));
+    if (docs.length === 0) {
+      docs = await Song.find().limit(30);
+    }
+
+    const result = docs.slice(0, 40).map((doc) =>
+      doc.toNormalized(userLikedTitles.has(doc.title.toLowerCase()))
+    );
 
     res.json({
       success: true,
@@ -138,10 +166,10 @@ export const getRecommendations = (req, res, next) => {
   }
 };
 
-export const toggleLike = (req, res, next) => {
+export const toggleLike = async (req, res, next) => {
   try {
     const { title, songId } = req.body;
-    const userId = req.user?.id || 'guest_listener';
+    const userId = req.user ? String(req.user._id || req.user.id) : 'guest_listener';
 
     if (!title && !songId) {
       return res.status(400).json({
@@ -152,83 +180,89 @@ export const toggleLike = (req, res, next) => {
 
     let targetSong = null;
     if (songId) {
-      targetSong = db.songs.findById(songId);
+      targetSong = await Song.findById(songId);
     } else if (title) {
-      targetSong = db.songs.findOne(
-        (s) => s.title?.toLowerCase() === title.toLowerCase().trim()
-      );
+      targetSong = await Song.findOne({
+        title: new RegExp(`^${title.trim()}$`, 'i'),
+      });
     }
 
     const songTitle = targetSong ? targetSong.title : title.trim();
 
-    // Check if currently liked by this user
-    const existingLike = db.likes.findOne(
-      (l) => l.userId === userId && l.songTitle?.toLowerCase() === songTitle.toLowerCase()
-    );
+    // Check if currently liked by this user in MongoDB
+    const existingLike = await Like.findOne({
+      userId,
+      songTitle: new RegExp(`^${songTitle}$`, 'i'),
+    });
 
     let nowLiked = false;
     if (existingLike) {
-      // Remove like
-      db.likes.delete((l) => l.id === existingLike.id);
+      // Remove like from MongoDB
+      await Like.deleteOne({ _id: existingLike._id });
+      if (req.user && req.user._id) {
+        await User.findByIdAndUpdate(req.user._id, {
+          $pull: { likedSongs: songTitle },
+        });
+      }
       nowLiked = false;
     } else {
-      // Add like
-      db.likes.insert({
+      // Insert like into MongoDB
+      await Like.create({
         userId,
         songTitle,
-        songId: targetSong?.id || null,
-        likedAt: new Date().toISOString(),
+        songId: targetSong?._id || null,
       });
+      if (req.user && req.user._id) {
+        await User.findByIdAndUpdate(req.user._id, {
+          $addToSet: { likedSongs: songTitle },
+        });
+      }
       nowLiked = true;
-    }
-
-    // Also update global liked status on the song if user is default demo
-    if (targetSong) {
-      db.songs.update((s) => s.id === targetSong.id, { liked: nowLiked });
     }
 
     res.json({
       success: true,
       liked: nowLiked,
       title: songTitle,
-      message: nowLiked ? `Added "${songTitle}" to liked songs.` : `Removed "${songTitle}" from liked songs.`,
+      message: nowLiked
+        ? `Added "${songTitle}" to liked songs in MongoDB.`
+        : `Removed "${songTitle}" from liked songs in MongoDB.`,
     });
   } catch (err) {
     next(err);
   }
 };
 
-export const getLikedSongs = (req, res, next) => {
+export const getLikedSongs = async (req, res, next) => {
   try {
-    const userId = req.user?.id || 'guest_listener';
+    const userId = req.user ? String(req.user._id || req.user.id) : 'guest_listener';
 
-    const userLikedTitles = new Set(
-      db.likes
-        .findAll((like) => like.userId === userId)
-        .map((like) => like.songTitle?.toLowerCase())
-    );
+    const likes = await Like.find({ userId }).select('songTitle').lean();
+    const likedTitles = likes.map((l) => l.songTitle);
 
-    const likedSongs = db.songs
-      .findAll((s) => userLikesHas(userLikedTitles, s))
-      .map((s) => ({ ...s, liked: true }));
+    const docs = await Song.find({
+      $or: [
+        { title: { $in: likedTitles.map((t) => new RegExp(`^${t}$`, 'i')) } },
+        { liked: true },
+      ],
+    }).sort({ updatedAt: -1 });
+
+    const normalized = docs.map((doc) => doc.toNormalized(true));
 
     res.json({
       success: true,
-      count: likedSongs.length,
-      songs: likedSongs,
+      count: normalized.length,
+      songs: normalized,
     });
   } catch (err) {
     next(err);
   }
 };
 
-function userLikesHas(likedTitlesSet, song) {
-  return likedTitlesSet.has(song.title?.toLowerCase()) || Boolean(song.liked);
-}
-
-export const addSong = (req, res, next) => {
+export const addSong = async (req, res, next) => {
   try {
-    const { title, singers, mood, year, album, duration, language, thumbnail, timeStamp } = req.body;
+    const { title, videoId, singers, artists, mood, moods, year, album, duration, language, thumbnail, timeStamp } =
+      req.body;
 
     if (!title) {
       return res.status(400).json({
@@ -237,38 +271,58 @@ export const addSong = (req, res, next) => {
       });
     }
 
-    const existing = db.songs.findOne(
-      (s) => s.title.toLowerCase() === title.toLowerCase().trim()
-    );
+    const cleanTitle = title.trim();
+    const existing = await Song.findOne({
+      title: new RegExp(`^${cleanTitle}$`, 'i'),
+    });
 
     if (existing) {
       return res.json({
         success: true,
-        song: existing,
-        message: 'Song already exists in catalog.',
+        song: existing.toNormalized(false),
+        message: 'Song already exists in MongoDB catalog.',
       });
     }
 
-    const newSong = db.songs.insert({
-      title: title.trim(),
-      singers: Array.isArray(singers) ? singers : [singers || 'Unknown'],
-      mood: Array.isArray(mood) ? mood : [mood || 'Flow'],
+    const singerList = Array.isArray(singers)
+      ? singers
+      : Array.isArray(artists)
+      ? artists
+      : [singers || artists || 'Unknown Artist'];
+
+    const moodList = Array.isArray(mood)
+      ? mood
+      : Array.isArray(moods)
+      ? moods
+      : [mood || moods || 'Flow'];
+
+    let thumb = thumbnail;
+    if (!thumb && videoId) {
+      thumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    }
+
+    const newDoc = await Song.create({
+      title: cleanTitle,
+      videoId: videoId?.trim() || '',
+      singers: singerList,
+      artists: singerList,
+      mood: moodList,
+      moods: moodList,
       year: Number(year) || new Date().getFullYear(),
       album: album?.trim() || 'Single',
       duration: duration?.trim() || '3:30',
       language: language?.trim() || 'English',
-      thumbnail: thumbnail || `https://picsum.photos/seed/${encodeURIComponent(title)}/400/400`,
+      thumbnail: thumb || `https://picsum.photos/seed/${encodeURIComponent(cleanTitle)}/400/400`,
       timeStamp: timeStamp || '8:00 PM',
       liked: false,
     });
 
     res.status(201).json({
       success: true,
-      song: newSong,
-      message: 'Song added successfully to database.',
+      song: newDoc.toNormalized(false),
+      message: 'Song added successfully to MongoDB collection!',
     });
   } catch (err) {
     next(err);
   }
 };
-

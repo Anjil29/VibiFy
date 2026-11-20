@@ -9,6 +9,7 @@ import {
 } from '../store/slices/playerSlice';
 import { toggleLike, selectLikedSongs } from '../store/slices/songSlice';
 import { showToast } from '../store/slices/uiSlice';
+import songService from '../services/songService';
 
 export function usePlayer() {
   const dispatch = useDispatch();
@@ -34,6 +35,8 @@ export function usePlayer() {
 
     const isLiked = likedSongs.some((s) => s.title.toLowerCase() === targetSong.title.toLowerCase());
     dispatch(toggleLike(targetSong));
+    songService.toggleLike(targetSong).catch(() => {});
+
     dispatch(
       showToast({
         message: isLiked
@@ -57,4 +60,3 @@ export function usePlayer() {
 }
 
 export default usePlayer;
-
