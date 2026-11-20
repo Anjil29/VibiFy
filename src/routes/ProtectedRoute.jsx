@@ -7,7 +7,7 @@ export const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const location = useLocation();
 
-  if (!isAuthenticated){
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
